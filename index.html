@@ -17,11 +17,25 @@
             this.title = ko.observable(title);
             this.answers = ko.observableArray(answers);
             this.filter = filter;
-            this.answer = ko.observable();
+            this.answerIndex = ko.observable(null);
+            this.answer = ko.computed(function () {
+                var index = this.answerIndex();
+                var answers = this.answers();
+                if (index >= answers.length) {
+                    return 'Not answered';
+                }
+
+                return answers[index];
+            }, this);
         }
+        var defaultAnswers = ['Yes', 'No', 'Don\`t care'];
         function QuestionaryModel() {
             var questions = [
-                new Question('Do you want Windows 10 support?', ['Yes', 'No', 'Don\`t care'], function (item, answer) {
+                new Question('Do you want Windows 10 support?', defaultAnswers, function (answer, item) {
+                    if (answer === null) {
+                        return true;
+                    }
+
                     if (answer === 2 || answer === 1) {
                         return true;
                     }
@@ -31,36 +45,97 @@
                     }
 
                     return false;
-                })
+                }),
+                new Question('Do you need VS support?', defaultAnswers, function (answer, item) {
+                    if (answer === null) {
+                        return true;
+                    }
+
+                    if (answer === 2 || answer === 1) {
+                        return true;
+                    }
+
+                    if (item.vs) {
+                        return true;
+                    }
+
+                    return false;
+                }),
+                new Question('Do you want override WebView?', defaultAnswers, function (answer, item) {
+                    if (answer === null) {
+                        return true;
+                    }
+
+                    if (answer === 2 || answer === 1) {
+                        return true;
+                    }
+
+                    if (item.customWebView) {
+                        return true;
+                    }
+
+                    return false;
+                }),
             ];
             this.cordovaData = [{
-                version: 'Cordova 4.1.2',
-                win10: false
+                version: '4.1.2',
+                win10: false,
+                vs: false,
+                customWebView: false,
             }, {
-                version: 'Cordova 4.2.0',
-                win10: false
+                version: '4.2.0',
+                win10: false,
+                vs: false,
+                customWebView: false,
             }, {
-                version: 'Cordova 4.3.0',
-                win10: false
+                version: '4.3.0',
+                win10: false,
+                vs: true,
+                customWebView: false,
             }, {
-                version: 'Cordova 4.3.1',
-                win10: false
+                version: '4.3.1',
+                win10: false,
+                vs: false,
+                customWebView: false,
             }, {
-                version: 'Cordova 5.0.0',
-                win10: false
+                version: '5.0.0',
+                win10: false,
+                vs: false,
+                customWebView: false,
             }, {
-                version: 'Cordova 5.1.1',
-                win10: true
+                version: '5.1.1',
+                win10: true,
+                vs: false,
+                customWebView: false,
             }];
-            this.currentQuestion = ko.obervable(0);
+            this.currentQuestionIndex = ko.observable(0);
             this.questions = ko.observableArray(questions);
+            this.currentQuestion = ko.computed(function () {
+                var index = this.currentQuestionIndex();
+                var questions = this.questions();
+                if (index >= questions.length) {
+                    return null;
+                }
 
+                return questions[index];
+            }, this);
+            this.filteredData = ko.computed(function () {
+                var questions = this.questions();
+                var data = this.cordovaData;
+                questions.forEach(function (item) {
+                    data = data.filter(item.filter.bind(null, item.answerIndex()));
+                });
+                return data.reverse();
+            }, this);
+            this.select = function (question, answer) {
+                question.answerIndex(answer);
+                this.currentQuestionIndex(this.currentQuestionIndex() + 1);
+            };
             this.reset = function () {
-                this.currentQuestion(0);
+                this.currentQuestionIndex(0);
             };
         };
         var model = new QuestionaryModel();
-        ko.applyBindings(model);
       </script>
   </head>
   <body>
@@ -68,21 +143,40 @@
       <h1 class="project-name">Cordova-version-selector</h1>
       <h2 class="project-tagline">Version selector tool for Cordova</h2>
       <a href="https://github.com/kant2002/cordova-version-selector" class="btn">View on GitHub</a>
+      <a href="#" class="btn" data-bind="click: reset">Reset answers</a>
     </section>
 
     <section class="main-content">
       <h3>
 <a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Questions.</h3>
 
+        <p>Please answers questions below, so we could easier find version of Cordova which is better fit for you.</p>
+        <p><b>NOTE:</b> If you specify answer as <i>Don't care</i> and you really don't care, then we could give you list of alternatives, based on relaxed answers to these questions.</p>
 
+        <!-- ko with: currentQuestion() -->
+        <h4 data-bind="text: title">Question title</h4>
+        <div data-bind="foreach: answers">
+            <a href="#" class="btn" data-bind="click: $root.select.bind($root, $parent, $index()), text: $data">How do you do?</a>
+        </div>
+        <!-- /ko -->
 
-        <a href="#" class="btn">Reset answers</a>
-        <button class="btn">Reset answers</button>
+        <!-- ko if: currentQuestion() == null -->
+        <h3>Your answers.</h3>
+        <div data-bind="foreach: questions">
+            <p><span data-bind="text: title"></span> <span data-bind="text: answer"></span></p>
+        </div>
+        <h3>Cordova versions which you could target.</h3>
+        <div data-bind="foreach: filteredData">
+            <pre><code data-bind="text: '$ npm install cordova@' + version"></code></pre>
+        </div>
 
+        <a href="#" class="btn" data-bind="click: reset">Reset answers</a>
+        <!-- /ko -->
+
+<!--
 <p>On this page you could select :</p>
 
-<pre><code>
-$ npm install cordova
+<pre><code>$ npm install cordova
 </code></pre>
 
 <p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
@@ -100,7 +194,7 @@ $ npm install cordova
 <h3>
 <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>-->
 
 <h3>
 <a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
@@ -115,7 +209,9 @@ $ npm install cordova
 
     </section>
 
-  
+  <script type="application/javascript">
+    ko.applyBindings(model, document.body);
+  </script>
   </body>
 </html>
 
