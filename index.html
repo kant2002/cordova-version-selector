@@ -20,6 +20,10 @@
             this.answerIndex = ko.observable(null);
             this.answer = ko.computed(function () {
                 var index = this.answerIndex();
+                if (index === null) {
+                    return 'Not answered';
+                }
+
                 var answers = this.answers();
                 if (index >= answers.length) {
                     return 'Not answered';
@@ -130,6 +134,9 @@
             this.select = function (question, answer) {
                 question.answerIndex(answer);
                 this.currentQuestionIndex(this.currentQuestionIndex() + 1);
+                if (this.filteredData().length <= 1) {
+                    this.currentQuestionIndex(this.questions().length);
+                }
             };
             this.reset = function () {
                 this.currentQuestionIndex(0);
